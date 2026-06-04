@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "modid",
+  "version": "1.0.0",
+
+  "name": "Block Finder",
+
+  "entrypoints": {
+    "main": [
+      "com.example.ExampleMod"
+    ],
+
+    "client": [
+      "com.example.client.ExampleClient"
+    ]
+  },
+
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric": "*",
+    "minecraft": "26.1.2"
+  }
+}
