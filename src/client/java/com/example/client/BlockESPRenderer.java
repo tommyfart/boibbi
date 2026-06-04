@@ -24,70 +24,138 @@ import java.util.Locale;
 
 public class BlockESPRenderer {
 
-    private static final int SCAN_RADIUS = 48;
-    private static final int MAX_RENDERED_BLOCKS = 512;
-    private static final int GREEN = 0xFF00FF00;
+    private static final int SCAN_RADIUS = 32;
+    private static final int MAX_RENDERED_BLOCKS = 256;
+
     private static final List<BlockPos> HIGHLIGHTED_BLOCKS = new ArrayList<>();
+
     private static int ticksUntilScan = 0;
 
     public static void register() {
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (ticksUntilScan > 0) {
-                ticksUntilScan--;
-                return;
-            }
+            if (--ticksUntilScan > 0) return;
 
-            ticksUntilScan = 10;
+            ticksUntilScan = 20;
             rebuildHighlightedBlocks(client);
         });
 
         LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES.register(context -> {
 
-            Minecraft minecraft = Minecraft.getInstance();
-            Player player = minecraft.player;
-            if (player == null || minecraft.level == null || HIGHLIGHTED_BLOCKS.isEmpty()) {
+            Minecraft mc = Minecraft.getInstance();
+
+            if (mc.player == null ||
+                mc.level == null ||
+                HIGHLIGHTED_BLOCKS.isEmpty()) {
                 return;
             }
 
             PoseStack matrices = context.matrixStack();
+
             MultiBufferSource consumers = context.consumers();
+
             Camera camera = context.camera();
-            Vec3 cameraPos = camera.getPosition();
-            VertexConsumer lines = consumers.getBuffer(RenderType.lines());
+
+            Vec3 camPos = camera.getPosition();
+
+            VertexConsumer lines =
+                    consumers.getBuffer(RenderType.lines());
 
             matrices.pushPose();
-            matrices.translate(-cameraPos.x, -cameraPos.y, -cameraPos.z);
+
+            matrices.translate(
+                    -camPos.x,
+                    -camPos.y,
+                    -camPos.z
+            );
 
             for (BlockPos pos : HIGHLIGHTED_BLOCKS) {
+
                 Vec3 center = pos.getCenter();
-                AABB box = new AABB(pos).inflate(0.002);
-                LevelRenderer.renderLineBox(matrices, lines, box, 0.0F, 1.0F, 0.0F, 1.0F);
-                renderTracer(matrices, lines, cameraPos, center);
-                renderDistanceLabel(minecraft.font, matrices, consumers, camera, player.position(), center);
+
+                double dist =
+                        mc.player.position().distanceTo(center);
+
+                AABB box =
+                        new AABB(pos).inflate(0.002);
+
+                LevelRenderer.renderLineBox(
+                        matrices,
+                        lines,
+                        box,
+                        0F,
+                        1F,
+                        0F,
+                        1F
+                );
+
+                renderTracer(
+                        matrices,
+                        lines,
+                        center
+                );
+
+                if (dist <= 30) {
+                    renderDistanceLabel(
+                            mc.font,
+                            matrices,
+                            consumers,
+                            camera,
+                            dist,
+                            center
+                    );
+                }
             }
 
             matrices.popPose();
-
         });
-
     }
 
-    private static void rebuildHighlightedBlocks(Minecraft minecraft) {
+    private static void rebuildHighlightedBlocks(
+            Minecraft mc
+    ) {
+
         HIGHLIGHTED_BLOCKS.clear();
 
-        Player player = minecraft.player;
-        if (player == null || minecraft.level == null || SelectedBlocks.BLOCKS.isEmpty()) {
+        Player player = mc.player;
+
+        if (player == null ||
+            mc.level == null ||
+            SelectedBlocks.BLOCKS.isEmpty()) {
             return;
         }
 
-        BlockPos playerPos = player.blockPosition();
-        for (int x = -SCAN_RADIUS; x <= SCAN_RADIUS && HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS; x++) {
-            for (int y = -SCAN_RADIUS; y <= SCAN_RADIUS && HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS; y++) {
-                for (int z = -SCAN_RADIUS; z <= SCAN_RADIUS && HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS; z++) {
-                    BlockPos pos = playerPos.offset(x, y, z);
-                    String blockId = BuiltInRegistries.BLOCK.getKey(minecraft.level.getBlockState(pos).getBlock()).toString();
-                    if (SelectedBlocks.BLOCKS.contains(blockId)) {
+        BlockPos playerPos =
+                player.blockPosition();
+
+        for (int x = -SCAN_RADIUS;
+             x <= SCAN_RADIUS &&
+             HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS;
+             x++) {
+
+            for (int y = -SCAN_RADIUS;
+                 y <= SCAN_RADIUS &&
+                 HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS;
+                 y++) {
+
+                for (int z = -SCAN_RADIUS;
+                     z <= SCAN_RADIUS &&
+                     HIGHLIGHTED_BLOCKS.size() < MAX_RENDERED_BLOCKS;
+                     z++) {
+
+                    BlockPos pos =
+                            playerPos.offset(x,y,z);
+
+                    String id =
+                            BuiltInRegistries.BLOCK
+                                    .getKey(
+                                            mc.level
+                                                    .getBlockState(pos)
+                                                    .getBlock()
+                                    )
+                                    .toString();
+
+                    if (SelectedBlocks.BLOCKS.contains(id)) {
                         HIGHLIGHTED_BLOCKS.add(pos);
                     }
                 }
@@ -95,24 +163,91 @@ public class BlockESPRenderer {
         }
     }
 
-    private static void renderTracer(PoseStack matrices, VertexConsumer lines, Vec3 cameraPos, Vec3 target) {
-        lines.addVertex(matrices.last().pose(), (float) cameraPos.x, (float) cameraPos.y, (float) cameraPos.z)
-                .setColor(0.0F, 1.0F, 0.0F, 0.85F);
-        lines.addVertex(matrices.last().pose(), (float) target.x, (float) target.y, (float) target.z)
-                .setColor(0.0F, 1.0F, 0.0F, 0.85F);
+    private static void renderTracer(
+            PoseStack matrices,
+            VertexConsumer lines,
+            Vec3 target
+    ) {
+
+        lines.addVertex(
+                        matrices.last().pose(),
+                        0F,
+                        0F,
+                        0F
+                )
+                .setColor(
+                        0F,
+                        1F,
+                        0F,
+                        0.85F
+                );
+
+        lines.addVertex(
+                        matrices.last().pose(),
+                        (float) target.x,
+                        (float) target.y,
+                        (float) target.z
+                )
+                .setColor(
+                        0F,
+                        1F,
+                        0F,
+                        0.85F
+                );
     }
 
-    private static void renderDistanceLabel(Font font, PoseStack matrices, MultiBufferSource consumers, Camera camera, Vec3 playerPos, Vec3 target) {
-        double distance = playerPos.distanceTo(target);
-        Component label = Component.literal(String.format(Locale.ROOT, "%.1fm", distance));
-        float textWidth = font.width(label);
+    private static void renderDistanceLabel(
+            Font font,
+            PoseStack matrices,
+            MultiBufferSource consumers,
+            Camera camera,
+            double distance,
+            Vec3 target
+    ) {
+
+        Component text =
+                Component.literal(
+                        String.format(
+                                Locale.ROOT,
+                                "%.1fm",
+                                distance
+                        )
+                );
+
+        float width =
+                (float) font.width(text);
 
         matrices.pushPose();
-        matrices.translate(target.x, target.y + 1.15, target.z);
-        matrices.mulPose(camera.rotation());
-        matrices.scale(-0.025F, -0.025F, 0.025F);
-        font.drawInBatch(label, -textWidth / 2.0F, 0.0F, GREEN, false, matrices.last().pose(), consumers, Font.DisplayMode.NORMAL, 0, 15728880);
+
+        matrices.translate(
+                target.x,
+                target.y + 1.15,
+                target.z
+        );
+
+        matrices.mulPose(
+                camera.rotation()
+        );
+
+        matrices.scale(
+                -0.025F,
+                -0.025F,
+                0.025F
+        );
+
+        font.drawInBatch(
+                text,
+                -width / 2F,
+                0,
+                0xFF00FF00,
+                false,
+                matrices.last().pose(),
+                consumers,
+                Font.DisplayMode.NORMAL,
+                0,
+                15728880
+        );
+
         matrices.popPose();
     }
-
 }
